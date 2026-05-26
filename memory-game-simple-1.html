@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindShift — משחק זיכרון</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0b0c10;
+    color: #e8eaf6;
+    font-family: system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem 1rem;
+    direction: rtl;
+  }
+
+  .glow {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(91,106,247,0.12), transparent);
+    pointer-events: none;
+  }
+
+  .logo {
+    font-weight: 800;
+    font-size: 1.8rem;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.03em;
+  }
+  .logo span { color: #2de0c4; }
+  .subtitle { color: #6b7280; font-size: 0.9rem; margin-bottom: 2rem; }
+
+  /* MENU */
+  #menu { width: 100%; max-width: 320px; }
+  .level-btn {
+    width: 100%;
+    background: rgba(91,106,247,0.08);
+    border: 1px solid rgba(91,106,247,0.25);
+    border-radius: 16px;
+    padding: 1.1rem 1.25rem;
+    color: #e8eaf6;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .level-btn:hover { transform: scale(1.02); background: rgba(91,106,247,0.15); }
+  .level-btn .info { display: flex; align-items: center; gap: 0.75rem; }
+  .level-btn .emoji { font-size: 1.5rem; }
+  .level-btn .name { font-weight: 700; }
+  .level-btn .pairs { font-size: 0.78rem; color: #6b7280; }
+  .level-btn .best { font-size: 0.78rem; color: #2de0c4; }
+
+  /* GAME */
+  #game { display: none; width: 100%; max-width: 420px; }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+  }
+  .top-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #1e2130;
+    border-radius: 100px;
+    padding: 0.4rem 0.9rem;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 0.82rem;
+  }
+  .restart-btn {
+    background: rgba(91,106,247,0.12);
+    border: 1px solid rgba(91,106,247,0.3);
+    border-radius: 100px;
+    padding: 0.4rem 0.9rem;
+    color: #5b6af7;
+    cursor: pointer;
+    font-size: 0.82rem;
+  }
+
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .stat {
+    background: #111420;
+    border: 1px solid #1e2130;
+    border-radius: 12px;
+    padding: 0.5rem 1rem;
+    text-align: center;
+    min-width: 70px;
+  }
+  .stat-val { font-weight: 700; color: #2de0c4; font-size: 1.1rem; }
+  .stat-label { font-size: 0.68rem; color: #6b7280; }
+
+  .progress-bar {
+    background: #1e2130;
+    border-radius: 100px;
+    height: 5px;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #5b6af7, #2de0c4);
+    border-radius: 100px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
+  .grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .card {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    cursor: pointer;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.35s ease;
+  }
+  .card.flipped { transform: rotateY(180deg); }
+  .card-front, .card-back {
+    position: absolute; inset: 0;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    backface-visibility: hidden;
+    font-size: 1.6rem;
+  }
+  .card-front {
+    background: linear-gradient(135deg, #5b6af7, #3a47c8);
+    border: 1px solid rgba(91,106,247,0.4);
+    font-size: 1.3rem;
+    color: rgba(255,255,255,0.5);
+  }
+  .card-back {
+    background: #13151c;
+    border: 1px solid #1e2130;
+    transform: rotateY(180deg);
+  }
+  .card.matched .card-back {
+    background: rgba(45,224,196,0.08);
+    border-color: rgba(45,224,196,0.25);
+    box-shadow: 0 0 16px rgba(45,224,196,0.1);
+  }
+
+  /* WIN */
+  #win {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(11,12,16,0.92);
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  #win.show { display: flex; }
+  .win-box {
+    background: #111420;
+    border: 1px solid #1e2130;
+    border-radius: 24px;
+    padding: 2.5rem;
+    text-align: center;
+    max-width: 300px;
+    width: 90%;
+  }
+  .win-box h2 { font-size: 1.75rem; font-weight: 800; margin: 0.5rem 0; }
+  .win-box p { color: #6b7280; font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .win-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+  }
+  .win-stat {
+    background: rgba(45,224,196,0.08);
+    border: 1px solid rgba(45,224,196,0.2);
+    border-radius: 12px;
+    padding: 0.75rem;
+  }
+  .win-stat-val { font-weight: 700; color: #2de0c4; font-size: 1.25rem; }
+  .win-stat-label { font-size: 0.72rem; color: #6b7280; }
+  .win-btns { display: flex; gap: 0.75rem; justify-content: center; }
+  .btn-grad {
+    background: linear-gradient(135deg, #5b6af7, #2de0c4);
+    border: none; border-radius: 100px;
+    padding: 0.75rem 1.5rem;
+    color: #fff; font-weight: 600;
+    cursor: pointer; font-size: 0.95rem;
+  }
+  .btn-outline {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #1e2130;
+    border-radius: 100px;
+    padding: 0.75rem 1.5rem;
+    color: #e8eaf6; cursor: pointer; font-size: 0.95rem;
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<div class="logo">Mind<span>Shift</span></div>
+<p class="subtitle">משחק זיכרון 🧠</p>
+
+<!-- MENU -->
+<div id="menu">
+  <button class="level-btn" onclick="startGame(4,4)">
+    <div class="info">
+      <span class="emoji">😊</span>
+      <div><div class="name">קל</div><div class="pairs">4 זוגות</div></div>
+    </div>
+    <span class="best" id="best-easy"></span>
+  </button>
+  <button class="level-btn" onclick="startGame(8,4)">
+    <div class="info">
+      <span class="emoji">🤔</span>
+      <div><div class="name">בינוני</div><div class="pairs">8 זוגות</div></div>
+    </div>
+    <span class="best" id="best-medium"></span>
+  </button>
+  <button class="level-btn" onclick="startGame(12,6)">
+    <div class="info">
+      <span class="emoji">🔥</span>
+      <div><div class="name">קשה</div><div class="pairs">12 זוגות</div></div>
+    </div>
+    <span class="best" id="best-hard"></span>
+  </button>
+</div>
+
+<!-- GAME -->
+<div id="game">
+  <div class="topbar">
+    <button class="top-btn" onclick="showMenu()">← תפריט</button>
+    <span id="level-label" style="font-weight:700;font-size:0.95rem"></span>
+    <button class="restart-btn" onclick="restartGame()">🔄 מחדש</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="stat-moves">0</div><div class="stat-label">מהלכים</div></div>
+    <div class="stat"><div class="stat-val" id="stat-time">00:00</div><div class="stat-label">זמן</div></div>
+    <div class="stat"><div class="stat-val" id="stat-pairs">0/0</div><div class="stat-label">זוגות</div></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- WIN -->
+<div id="win">
+  <div class="win-box">
+    <div style="font-size:3rem">🏆</div>
+    <h2>כל הכבוד!</h2>
+    <p>סיימת את הרמה</p>
+    <div class="win-stats">
+      <div class="win-stat"><div class="win-stat-val" id="win-time">-</div><div class="win-stat-label">זמן</div></div>
+      <div class="win-stat" style="background:rgba(91,106,247,0.08);border-color:rgba(91,106,247,0.2)">
+        <div class="win-stat-val" style="color:#5b6af7" id="win-moves">-</div>
+        <div class="win-stat-label">מהלכים</div>
+      </div>
+    </div>
+    <div class="win-btns">
+      <button class="btn-grad" onclick="restartGame()">🔄 שוב</button>
+      <button class="btn-outline" onclick="showMenu()">תפריט</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const EMOJIS = ["🧠","⚡","🏆","🎯","🌙","💎","🔥","🎲","🚀","🌊","🎸","🦋"];
+let currentPairs = 0, currentCols = 0;
+let moves = 0, matches = 0, seconds = 0;
+let selected = [], locked = false, timer = null;
+let bestScores = {4:null, 8:null, 12:null};
+
+function fmt(s) {
+  return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function startGame(pairs, cols) {
+  currentPairs = pairs; currentCols = cols;
+  moves = 0; matches = 0; seconds = 0; selected = []; locked = false;
+  clearInterval(timer);
+
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  document.getElementById('win').classList.remove('show');
+  document.getElementById('level-label').textContent = pairs===4?'😊 קל':pairs===8?'🤔 בינוני':'🔥 קשה';
+  updateStats();
+
+  const emojis = shuffle([...EMOJIS.slice(0,pairs), ...EMOJIS.slice(0,pairs)]);
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  grid.innerHTML = '';
+
+  emojis.forEach((emoji, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.emoji = emoji;
+    card.dataset.id = i;
+    card.innerHTML = `<div class="card-front">?</div><div class="card-back">${emoji}</div>`;
+    card.onclick = () => flipCard(card);
+    grid.appendChild(card);
+  });
+
+  timer = setInterval(() => {
+    seconds++;
+    document.getElementById('stat-time').textContent = fmt(seconds);
+  }, 1000);
+}
+
+function restartGame() { startGame(currentPairs, currentCols); }
+
+function showMenu() {
+  clearInterval(timer);
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('win').classList.remove('show');
+  document.getElementById('menu').style.display = 'block';
+  updateBest();
+}
+
+function updateStats() {
+  document.getElementById('stat-moves').textContent = moves;
+  document.getElementById('stat-pairs').textContent = matches+'/'+currentPairs;
+  document.getElementById('progress').style.width = (matches/currentPairs*100)+'%';
+}
+
+function updateBest() {
+  [4,8,12].forEach(p => {
+    const key = p===4?'easy':p===8?'medium':'hard';
+    const el = document.getElementById('best-'+key);
+    el.textContent = bestScores[p] !== null ? '🏆 '+fmt(bestScores[p]) : '';
+  });
+}
+
+function flipCard(card) {
+  if (locked || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+  if (selected.length === 2) return;
+
+  card.classList.add('flipped');
+  selected.push(card);
+
+  if (selected.length === 2) {
+    moves++;
+    updateStats();
+    locked = true;
+    const [a, b] = selected;
+
+    if (a.dataset.emoji === b.dataset.emoji) {
+      setTimeout(() => {
+        a.classList.add('matched');
+        b.classList.add('matched');
+        matches++;
+        updateStats();
+        selected = [];
+        locked = false;
+        if (matches === currentPairs) {
+          clearInterval(timer);
+          if (bestScores[currentPairs] === null || seconds < bestScores[currentPairs]) {
+            bestScores[currentPairs] = seconds;
+          }
+          document.getElementById('win-time').textContent = fmt(seconds);
+          document.getElementById('win-moves').textContent = moves;
+          setTimeout(() => document.getElementById('win').classList.add('show'), 300);
+        }
+      }, 400);
+    } else {
+      setTimeout(() => {
+        a.classList.remove('flipped');
+        b.classList.remove('flipped');
+        selected = [];
+        locked = false;
+      }, 900);
+    }
+  }
+}
+</script>
+</body>
+</html>
